@@ -1,8 +1,8 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'Claude'
-description 'AL-Tax - Automatic Tax System for FiveM Servers'
+author 'Allan'
+description 'AL-Tax - Automatic Tax System V2'
 version '1.0.0'
 
 shared_scripts {
