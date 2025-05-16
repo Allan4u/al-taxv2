@@ -146,7 +146,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
             rate = "5k per item"
         })
         
-        -- Deduct tax from player
         DeductTaxFromPlayer(source, totalTax, taxDetails, isOnline, identifier)
     else
         -- For offline players, we need to get data from the database
@@ -157,7 +156,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                     playerMoney = accounts.money or 0
                     playerBank = accounts.bank or 0
                     
-                    -- Calculate income tax
                     local totalWealth = playerMoney + playerBank
                     local incomeTax, taxBracket = CalculateIncomeTax(totalWealth)
                     
@@ -168,8 +166,7 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                         amount = incomeTax,
                         rate = taxBracket.taxRate * 100 .. "%"
                     })
-                    
-                    -- Calculate vehicle tax
+                
                     local vehicleTax, vehicleCount = CalculateVehicleTax(identifier)
                     
                     totalTax = totalTax + vehicleTax
@@ -180,7 +177,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                         rate = "150k per vehicle"
                     })
                     
-                    -- Calculate electronic items tax
                     local electronicTax, electronicItems = CalculateElectronicTax(nil, isOnline, identifier)
                     
                     totalTax = totalTax + electronicTax
@@ -191,7 +187,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                         rate = "5k per item"
                     })
                     
-                    -- Deduct tax from player
                     DeductTaxFromPlayer(nil, totalTax, taxDetails, isOnline, identifier)
                 end
             end)
@@ -202,7 +197,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                     playerMoney = money.cash or 0
                     playerBank = money.bank or 0
                     
-                    -- Calculate income tax
                     local totalWealth = playerMoney + playerBank
                     local incomeTax, taxBracket = CalculateIncomeTax(totalWealth)
                     
@@ -214,7 +208,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                         rate = taxBracket.taxRate * 100 .. "%"
                     })
                     
-                    -- Calculate vehicle tax
                     local vehicleTax, vehicleCount = CalculateVehicleTax(identifier)
                     
                     totalTax = totalTax + vehicleTax
@@ -225,7 +218,6 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
                         rate = "150k per vehicle"
                     })
                     
-                    -- Calculate electronic items tax
                     local electronicTax, electronicItems = CalculateElectronicTax(nil, isOnline, identifier)
                     
                     totalTax = totalTax + electronicTax
@@ -244,9 +236,7 @@ function CollectTaxesFromPlayer(identifier, isOnline, source)
     end
 end
 
--- Function to calculate income tax
 function CalculateIncomeTax(totalWealth)
-    -- Check if player has a custom tax bracket
     if identifier then
         local result = MySQL.query.await('SELECT bracket_index FROM al_tax_custom_brackets WHERE identifier = ?', {identifier})
         if result and #result > 0 then
@@ -259,7 +249,6 @@ function CalculateIncomeTax(totalWealth)
         end
     end
     
-    -- If no custom bracket, calculate based on wealth
     for _, bracket in ipairs(Config.IncomeTaxBrackets) do
         if totalWealth >= bracket.minAmount and totalWealth <= bracket.maxAmount then
             local taxAmount = math.floor(totalWealth * bracket.taxRate)
@@ -267,13 +256,11 @@ function CalculateIncomeTax(totalWealth)
         end
     end
     
-    -- Default to the highest bracket if none match
     local highestBracket = Config.IncomeTaxBrackets[#Config.IncomeTaxBrackets]
     local taxAmount = math.floor(totalWealth * highestBracket.taxRate)
     return taxAmount, highestBracket
 end
 
--- Function to calculate vehicle tax
 function CalculateVehicleTax(identifier)
     local vehicleCount = 0
     
@@ -293,7 +280,6 @@ function CalculateVehicleTax(identifier)
     return taxAmount, vehicleCount
 end
 
--- Function to calculate electronic items tax
 function CalculateElectronicTax(source, isOnline, identifier)
     local electronicItemCount = 0
     local electronicItems = {}
@@ -321,7 +307,6 @@ function CalculateElectronicTax(source, isOnline, identifier)
             end
         end
     else
-        -- For offline players, check items in the database
         if Config.Framework == 'esx' then
             for _, itemName in ipairs(Config.ElectronicTax.items) do
                 local result = MySQL.query.await('SELECT COUNT(*) as count FROM user_inventory WHERE identifier = ? AND item = ?', {identifier, itemName})
@@ -350,22 +335,17 @@ function CalculateElectronicTax(source, isOnline, identifier)
     return taxAmount, electronicItems
 end
 
--- Function to deduct tax from player
 function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier)
     if isOnline then
         if Config.Framework == 'esx' then
             local xPlayer = ESX.GetPlayerFromIdentifier(identifier)
-            
-            -- Save tax records before deducting
             SaveTaxRecord(identifier, taxAmount, taxDetails)
             
-            -- Try to deduct from bank first
             local bankBalance = xPlayer.getAccount('bank').money
             if bankBalance >= taxAmount then
                 xPlayer.removeAccountMoney('bank', taxAmount)
                 NotifyPlayer(source, "Pajak sebesar $" .. taxAmount .. " telah dipotong dari rekening bank Anda.")
             else
-                -- If not enough in bank, deduct remaining from cash
                 local remainingTax = taxAmount - bankBalance
                 if bankBalance > 0 then
                     xPlayer.removeAccountMoney('bank', bankBalance)
@@ -376,7 +356,6 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                     xPlayer.removeMoney(remainingTax)
                     NotifyPlayer(source, "Pajak sebesar $" .. taxAmount .. " telah dipotong dari rekening bank dan uang tunai Anda.")
                 else
-                    -- If still not enough, charge what we can and mark the rest as debt
                     local totalPaid = bankBalance + cashBalance
                     local debt = taxAmount - totalPaid
                     
@@ -384,7 +363,6 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                         xPlayer.removeMoney(cashBalance)
                     end
                     
-                    -- Record debt for future collection
                     RecordTaxDebt(identifier, debt)
                     NotifyPlayer(source, "Anda tidak memiliki cukup uang untuk membayar pajak. $" .. totalPaid .. " telah dibayarkan dan $" .. debt .. " dicatat sebagai hutang.")
                 end
@@ -392,16 +370,13 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
         elseif Config.Framework == 'qbcore' then
             local xPlayer = QBCore.Functions.GetPlayer(source)
             
-            -- Save tax records before deducting
             SaveTaxRecord(identifier, taxAmount, taxDetails)
             
-            -- Try to deduct from bank first
             local bankBalance = xPlayer.PlayerData.money['bank']
             if bankBalance >= taxAmount then
                 xPlayer.Functions.RemoveMoney('bank', taxAmount, "Tax Payment")
                 NotifyPlayer(source, "Pajak sebesar $" .. taxAmount .. " telah dipotong dari rekening bank Anda.")
             else
-                -- If not enough in bank, deduct remaining from cash
                 local remainingTax = taxAmount - bankBalance
                 if bankBalance > 0 then
                     xPlayer.Functions.RemoveMoney('bank', bankBalance, "Tax Payment")
@@ -412,7 +387,6 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                     xPlayer.Functions.RemoveMoney('cash', remainingTax, "Tax Payment")
                     NotifyPlayer(source, "Pajak sebesar $" .. taxAmount .. " telah dipotong dari rekening bank dan uang tunai Anda.")
                 else
-                    -- If still not enough, charge what we can and mark the rest as debt
                     local totalPaid = bankBalance + cashBalance
                     local debt = taxAmount - totalPaid
                     
@@ -420,31 +394,25 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                         xPlayer.Functions.RemoveMoney('cash', cashBalance, "Tax Payment")
                     end
                     
-                    -- Record debt for future collection
                     RecordTaxDebt(identifier, debt)
                     NotifyPlayer(source, "Anda tidak memiliki cukup uang untuk membayar pajak. $" .. totalPaid .. " telah dibayarkan dan $" .. debt .. " dicatat sebagai hutang.")
                 end
             end
         end
     else
-        -- For offline players, update balances directly in the database
-        -- Save tax records first
         SaveTaxRecord(identifier, taxAmount, taxDetails)
         
         if Config.Framework == 'esx' then
-            -- Get current balances
             local result = MySQL.query.await('SELECT accounts FROM users WHERE identifier = ?', {identifier})
             if result and result[1] and result[1].accounts then
                 local accounts = json.decode(result[1].accounts)
                 local bankBalance = accounts.bank or 0
                 local cashBalance = accounts.money or 0
                 
-                -- Try to deduct from bank first
                 if bankBalance >= taxAmount then
                     accounts.bank = bankBalance - taxAmount
                     MySQL.update('UPDATE users SET accounts = ? WHERE identifier = ?', {json.encode(accounts), identifier})
                 else
-                    -- If not enough in bank, deduct remaining from cash
                     local remainingTax = taxAmount - bankBalance
                     accounts.bank = 0
                     
@@ -452,32 +420,26 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                         accounts.money = cashBalance - remainingTax
                         MySQL.update('UPDATE users SET accounts = ? WHERE identifier = ?', {json.encode(accounts), identifier})
                     else
-                        -- If still not enough, charge what we can and mark the rest as debt
                         local totalPaid = bankBalance + cashBalance
                         local debt = taxAmount - totalPaid
                         
                         accounts.money = 0
                         MySQL.update('UPDATE users SET accounts = ? WHERE identifier = ?', {json.encode(accounts), identifier})
-                        
-                        -- Record debt for future collection
                         RecordTaxDebt(identifier, debt)
                     end
                 end
             end
         elseif Config.Framework == 'qbcore' then
-            -- Get current balances
             local result = MySQL.query.await('SELECT money FROM players WHERE citizenid = ?', {identifier})
             if result and result[1] and result[1].money then
                 local money = json.decode(result[1].money)
                 local bankBalance = money.bank or 0
                 local cashBalance = money.cash or 0
                 
-                -- Try to deduct from bank first
                 if bankBalance >= taxAmount then
                     money.bank = bankBalance - taxAmount
                     MySQL.update('UPDATE players SET money = ? WHERE citizenid = ?', {json.encode(money), identifier})
                 else
-                    -- If not enough in bank, deduct remaining from cash
                     local remainingTax = taxAmount - bankBalance
                     money.bank = 0
                     
@@ -485,14 +447,12 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
                         money.cash = cashBalance - remainingTax
                         MySQL.update('UPDATE players SET money = ? WHERE citizenid = ?', {json.encode(money), identifier})
                     else
-                        -- If still not enough, charge what we can and mark the rest as debt
                         local totalPaid = bankBalance + cashBalance
                         local debt = taxAmount - totalPaid
                         
                         money.cash = 0
                         MySQL.update('UPDATE players SET money = ? WHERE citizenid = ?', {json.encode(money), identifier})
                         
-                        -- Record debt for future collection
                         RecordTaxDebt(identifier, debt)
                     end
                 end
@@ -501,7 +461,6 @@ function DeductTaxFromPlayer(source, taxAmount, taxDetails, isOnline, identifier
     end
 end
 
--- Function to save tax record
 function SaveTaxRecord(identifier, taxAmount, taxDetails)
     MySQL.insert('INSERT INTO al_tax_records (identifier, tax_amount, tax_details, timestamp) VALUES (?, ?, ?, ?)', {
         identifier,
@@ -511,7 +470,6 @@ function SaveTaxRecord(identifier, taxAmount, taxDetails)
     })
 end
 
--- Function to record tax debt
 function RecordTaxDebt(identifier, debtAmount)
     -- Check if player already has a debt record
     local result = MySQL.query.await('SELECT debt_amount FROM al_tax_debts WHERE identifier = ?', {identifier})
