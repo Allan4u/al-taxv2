@@ -1,10 +1,8 @@
 Config = {}
 
--- Framework selection
 Config.Framework = 'esx' -- Options: 'esx', 'qbcore'
 Config.UseESXModern = true -- Use ESX Modern version
 
--- Tax schedule configuration
 Config.TaxCollection = {
     intervalDays = 7, -- Collect taxes every 7 days
     hour = 20, -- 8 PM WIB (Western Indonesian Time)
@@ -22,22 +20,18 @@ Config.IncomeTaxBrackets = {
     {name = "Sangat Kaya", minAmount = 10000001, maxAmount = math.huge, taxRate = 0.20}, -- 20%
 }
 
--- Vehicle tax settings
 Config.VehicleTax = {
     amountPerVehicle = 150000 -- 150k per vehicle
 }
 
--- Electronic items tax
 Config.ElectronicTax = {
     items = {"phone", "iphone"},
     taxAmount = 5000 -- 5k per electronic item
 }
 
--- Notification settings
 Config.Notifications = {
     prefix = "^3[AL-TAX]^7 ", -- Prefix for chat notifications
     useCustomNotify = false, -- Set to true if you want to use a custom notification system
-    -- Function to call your custom notification (replace with your own if useCustomNotify is true)
     customNotify = function(source, message, type)
         -- Example: exports['mythic_notify']:DoHudText(type, message)
     end
